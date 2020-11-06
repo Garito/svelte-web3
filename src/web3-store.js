@@ -26,7 +26,7 @@ const chainIdHeuristic = ({ chainId, networkVersion }) => {
 
 export const ethereum = {
   setProvider: async provider => {
-    console.log('web3.js connection, setting provider', provider)
+    // console.log('web3.js connection, setting provider', provider)
     connection.set({
       provider,
       providerType: 'HTTP', // better self discovery
@@ -35,8 +35,9 @@ export const ethereum = {
     })
   },
   setBrowserProvider: async () => {
-    const accounts = await window.ethereum.enable()
-    console.log('web3.js connection, set provider using window.ethereum', window.ethereum)
+    // const accounts = await window.ethereum.enable()
+    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+    // console.log('web3.js connection, set provider using window.ethereum', window.ethereum)
     connection.set({
       provider: window.ethereum,
       providerType: 'Browser',
@@ -49,7 +50,7 @@ export const ethereum = {
       // window.ethereum.on('chainChanged', ethereum.onChainChanged)
       window.ethereum.on('networkChanged', networkId => {
         // handle the new networt - simulate new API
-        console.log('network has changed to', chainId)
+        // console.log('network has changed to', chainId)
         ethereum.onChainChanged(web3utils.toHex(networkId));
       })
     }
@@ -57,7 +58,7 @@ export const ethereum = {
   onAccountsChanged: accounts => connection.update(c => ({...c, accounts})),
   onChainChanged: chainId => {
     connection.update(c => ({...c, chainId}))
-    console.log('chain had chaned to', chainId)
+    // console.log('chain had chaned to', chainId)
   },
   loadProviderState: async (instance) => {
     instance.eth.net.getId((err, networkId) => {
@@ -95,7 +96,7 @@ export const web3 = derived(
   $connection => {
     if (!$connection.provider) return {};
     const instance = new Web3($connection.provider)
-    console.log('web3 instance ready', instance)
+    // console.log('web3 instance ready', instance)
     ethereum.loadProviderState(instance)
     return instance
   }
