@@ -1,8 +1,10 @@
-
+import WalletLink from 'walletlink';
 import Web3 from 'web3'
+import WalletConnectProvider from "@walletconnect/web3-provider";
 
 import { derived, writable } from 'svelte/store'
 
+// https://chainid.network/chains.json
 import chains from './chains.json'
 
 export const web3utils = Web3.utils
@@ -35,7 +37,6 @@ export const ethereum = {
     })
   },
   setBrowserProvider: async () => {
-    // const accounts = await window.ethereum.enable()
     const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
     // console.log('web3.js connection, set provider using window.ethereum', window.ethereum)
     connection.set({
@@ -48,18 +49,49 @@ export const ethereum = {
       window.ethereum.autoRefreshOnNetworkChange = false
       window.ethereum.on('accountsChanged', ethereum.onAccountsChanged)
       // window.ethereum.on('chainChanged', ethereum.onChainChanged)
-      window.ethereum.on('networkChanged', networkId => {
+      window.ethereum.on('chainChanged', networkId => {
         // handle the new networt - simulate new API
         // console.log('network has changed to', chainId)
         ethereum.onChainChanged(web3utils.toHex(networkId));
       })
     }
   },
-  onAccountsChanged: accounts => connection.update(c => ({...c, accounts})),
-  onChainChanged: chainId => {
-    connection.update(c => ({...c, chainId}))
-    // console.log('chain had chaned to', chainId)
+  setWalletConnectProvider: async key => {
+    const provider = new WalletConnectProvider({ infuraId: key });
+
+    await provider.enable();
+    connection.set({
+      provider,
+      providerType: 'Walletconnect',
+      chainId: provider.chainId,
+      accounts: provider.accounts
+    });
+
+    provider.on('disconnect', () => { ethereum.disconnect(); });
+
+    provider.on('accountsChanged', ethereum.onAccountsChanged);
+    provider.on('chainChanged', networkId => { ethereum.onChainChanged(web3utils.toHex(networkId)); });
   },
+  setWalletLinkProvider: async key => {
+    const walletlink = new WalletLink({
+      appName: 'Molekulon3 Tests',
+      appLogoUrl: 'https://i.ibb.co/tDNKvyt/logo.gif',
+      darkMode: true
+    });
+
+    const accounts = await walletlink.send('eth_requestAccounts');
+
+    const provider = walletlink.makeWeb3Provider(`https://mainnet.infura.io/v3/${ key }`, 1);
+    console.log(provider);
+    connection.set({
+      provider,
+      providerType: 'Walletlink',
+      chainId: provider.chainId,
+      accounts
+    });
+  },
+  onAccountsChanged: accounts => connection.update(c => ({...c, accounts})),
+  onChainChanged: chainId => connection.update(c => ({...c, chainId})),
   loadProviderState: async (instance) => {
     instance.eth.net.getId((err, networkId) => {
       if (!err) state.update(s => ({...s, networkId}))
@@ -67,12 +99,18 @@ export const ethereum = {
     instance.eth.net.isListening((err, isListening) => {
       if (!err) state.update(s => ({...s, isListening}))
     })
+  },
+  disconnect: () => {
+    connection.set({ provider: null, accounts: [] });
+    state.set({});
   }
 }
 
 export const providerType = derived(connection, $connection => $connection.providerType)
+export const shortName = derived(connection, $connection => chain($connection.chainId).shortName)
+export const network = derived(connection, $connection => chain($connection.chainId).network)
 export const chainId = derived(connection, $connection => $connection.chainId)
-
+export const chainChain = derived(connection, $connection => chain($connection.chainId).chain)
 export const chainName = derived(connection, $connection => chain($connection.chainId).name)
 export const nativeCurrency = derived(connection, $connection => chain($connection.chainId).nativeCurrency)
 
